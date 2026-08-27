@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>
+  try {
+    var t = localStorage.getItem('theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Benchmarks</title>
+<meta name="description" content="A practical toolkit for evaluating LLM-based systems — eval patterns, an honest tool comparison, and a runnable rubric-scoring harness, for teams who already ship with LLMs.">
+<link rel="canonical" href="https://clarkngo.github.io/ai-benchmarks/">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta property="og:title" content="AI Benchmarks">
+<meta property="og:description" content="A practical toolkit for evaluating LLM-based systems — eval patterns, an honest tool comparison, and a runnable rubric-scoring harness.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://clarkngo.github.io/ai-benchmarks/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AI Benchmarks">
+<meta name="twitter:description" content="A practical toolkit for evaluating LLM-based systems.">
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --bg-alt: #ffffff;
+    --text: #12181f;
+    --text-muted: #576273;
+    --border: #e2e7ee;
+    --accent-1: #0284c7;
+    --accent-2: #16a34a;
+    --accent-3: #d97706;
+    --danger: #dc2626;
+    --code-bg: #0e1420;
+    --code-text: #d7e2ef;
+    --card-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06);
+    --card-shadow-hover: 0 4px 8px rgba(15,23,42,0.06), 0 16px 40px rgba(15,23,42,0.12);
+    --focus-ring: #0284c7;
+    --toggle-bg: rgba(18,24,31,0.06);
+    --toggle-bg-hover: rgba(18,24,31,0.1);
+    --chip-bg: rgba(2,132,199,0.09);
+    --chip-text: #075985;
+    --tool-chip-bg: rgba(18,24,31,0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a0f16;
+      --bg-alt: #121a24;
+      --text: #eef2f7;
+      --text-muted: #93a1b3;
+      --border: #223040;
+      --accent-1: #38bdf8;
+      --accent-2: #4ade80;
+      --accent-3: #fbbf24;
+      --danger: #f87171;
+      --code-bg: #060a10;
+      --code-text: #cddcee;
+      --card-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+      --card-shadow-hover: 0 4px 8px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.5);
+      --focus-ring: #38bdf8;
+      --toggle-bg: rgba(255,255,255,0.08);
+      --toggle-bg-hover: rgba(255,255,255,0.14);
+      --chip-bg: rgba(56,189,248,0.14);
+      --chip-text: #7dd3fc;
+      --tool-chip-bg: rgba(255,255,255,0.06);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0a0f16;
+    --bg-alt: #121a24;
+    --text: #eef2f7;
+    --text-muted: #93a1b3;
+    --border: #223040;
+    --accent-1: #38bdf8;
+    --accent-2: #4ade80;
+    --accent-3: #fbbf24;
+    --danger: #f87171;
+    --code-bg: #060a10;
+    --code-text: #cddcee;
+    --card-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    --card-shadow-hover: 0 4px 8px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.5);
+    --focus-ring: #38bdf8;
+    --toggle-bg: rgba(255,255,255,0.08);
+    --toggle-bg-hover: rgba(255,255,255,0.14);
+    --chip-bg: rgba(56,189,248,0.14);
+    --chip-text: #7dd3fc;
+    --tool-chip-bg: rgba(255,255,255,0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    background: var(--bg-alt);
+    color: var(--text);
+    padding: 0.75rem 1.25rem;
+    border-radius: 0 0 8px 0;
+    z-index: 100;
+  }
+
+  .skip-link:focus { left: 0; }
+
+  .hero {
+    position: relative;
+    padding: 5rem 1.5rem 3.5rem;
+    text-align: center;
+    overflow: hidden;
+    background:
+      radial-gradient(60% 90% at 12% 0%, color-mix(in srgb, var(--accent-1) 20%, transparent), transparent 70%),
+      radial-gradient(55% 80% at 92% 5%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 70%);
+  }
+
+  .theme-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 999px;
+    background: var(--toggle-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .theme-toggle:hover { background: var(--toggle-bg-hover); }
+  .theme-toggle svg { width: 1.15rem; height: 1.15rem; }
+
+  .eyebrow {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    margin-bottom: 1rem;
+  }
+
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2.4rem, 6vw, 3.75rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(120deg, var(--accent-1), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .hero p.lede {
+    margin: 1.1rem auto 0;
+    max-width: 38rem;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  main {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 5rem;
+  }
+
+  section { margin-top: 4.5rem; }
+  section:first-of-type { margin-top: -1.5rem; }
+
+  .section-head { max-width: 42rem; margin: 0 auto 2rem; text-align: center; }
+
+  .section-eyebrow {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-1);
+    margin-bottom: 0.6rem;
+  }
+
+  .section-head h2 {
+    margin: 0 0 0.6rem;
+    font-size: clamp(1.6rem, 3.5vw, 2.1rem);
+    letter-spacing: -0.02em;
+  }
+
+  .section-head p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* Why-evals grid */
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .why-card {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    box-shadow: var(--card-shadow);
+  }
+
+  .why-card .why-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    background: color-mix(in srgb, var(--why-accent) 16%, transparent);
+    color: var(--why-accent);
+  }
+
+  .why-card .why-icon svg { width: 1.4rem; height: 1.4rem; }
+
+  .why-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+  }
+
+  .why-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+
+  .filter-btn {
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .filter-btn:hover { border-color: var(--accent-1); color: var(--text); }
+
+  .filter-btn.active {
+    background: var(--accent-1);
+    border-color: var(--accent-1);
+    color: white;
+  }
+
+  /* Pattern catalog grid */
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .p-card {
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .p-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    border-color: color-mix(in srgb, var(--card-accent) 40%, var(--border));
+  }
+
+  .p-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 1.5rem 1.5rem 0;
+  }
+
+  .p-card-icon {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--card-accent) 85%, black 0%), color-mix(in srgb, var(--card-accent) 60%, black 15%));
+  }
+
+  .p-card-icon svg {
+    width: 1.4rem;
+    height: 1.4rem;
+    stroke: white;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .p-card-title { margin: 0 0 0.3rem; font-size: 1.08rem; font-weight: 700; }
+
+  .difficulty-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+  }
+
+  .difficulty-beginner { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
+  .difficulty-intermediate { background: color-mix(in srgb, var(--accent-1) 18%, transparent); color: var(--accent-1); }
+  .difficulty-advanced { background: color-mix(in srgb, var(--accent-3) 20%, transparent); color: var(--accent-3); }
+
+  .p-card-body { padding: 1rem 1.5rem 1.5rem; display: flex; flex-direction: column; flex: 1; }
+
+  .p-card-summary { margin: 0 0 0.9rem; color: var(--text-muted); font-size: 0.92rem; line-height: 1.55; }
+
+  .p-card-catches {
+    margin: 0 0 1rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--danger) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
+  }
+
+  .p-card-catches strong { color: var(--danger); }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; }
+
+  .chip {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--chip-text);
+  }
+
+  .tool-chip {
+    font-size: 0.72rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    background: var(--tool-chip-bg);
+    color: var(--text-muted);
+  }
+
+  .expand-btn {
+    margin-top: auto;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--card-accent);
+    background: none;
+    border: none;
+    padding: 0.4rem 0;
+    cursor: pointer;
+  }
+
+  .expand-btn svg { width: 0.9rem; height: 0.9rem; transition: transform 0.2s ease; }
+  .expand-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+  .p-card-detail {
+    margin-top: 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .p-card-detail[hidden] { display: none; }
+
+  .p-card-detail p { margin: 0; font-size: 0.88rem; line-height: 1.6; color: var(--text-muted); }
+  .p-card-detail strong { color: var(--text); }
+
+  /* Tool comparison table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-alt); box-shadow: var(--card-shadow); }
+
+  table.compare { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 640px; }
+
+  table.compare th, table.compare td {
+    text-align: left;
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  table.compare th {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--accent-1) 5%, transparent);
+  }
+
+  table.compare tr:last-child td { border-bottom: none; }
+  table.compare td:first-child { font-weight: 700; white-space: nowrap; }
+  table.compare td.watchout { color: var(--text-muted); }
+
+  /* Code example section */
+  .code-wrap {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 16px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    box-shadow: var(--card-shadow);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  .code-wrap pre { margin: 0; }
+  .code-wrap code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .code-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    border-radius: 10px;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text);
+  }
+
+  .btn.primary { background: var(--accent-1); border-color: var(--accent-1); color: white; }
+  .btn svg { width: 1rem; height: 1rem; }
+
+  .load-error { text-align: center; color: var(--text-muted); padding: 2rem 0; }
+
+  footer {
+    text-align: center;
+    padding: 2rem 1.5rem 3rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  footer a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .p-card, .expand-btn svg { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="hero">
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme"></button>
+    <span class="eyebrow">Clark Ngo</span>
+    <h1>AI Benchmarks</h1>
+    <p class="lede">A practical toolkit for evaluating LLM-based systems — prompts, agents, and pipelines. For teams that already ship with LLMs and need a repeatable way to catch regressions.</p>
+  </header>
+
+  <main id="main">
+
+    <section id="why">
+      <div class="section-head">
+        <span class="section-eyebrow">The problem</span>
+        <h2>Vibes don't scale</h2>
+        <p>A single mega-prompt that "feels right" in a demo and a slow manual human-review loop are the two most common eval strategies — and neither one catches regressions before your users do.</p>
+      </div>
+      <div class="why-grid">
+        <div class="why-card" style="--why-accent: var(--accent-1);">
+          <div class="why-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <h3>One mega-prompt isn't a test suite</h3>
+          <p>A single hand-tuned prompt that "feels right" in a demo tells you nothing about the hundred edge cases your users will actually hit. Vibes don't regress-test.</p>
+        </div>
+        <div class="why-card" style="--why-accent: var(--accent-3);">
+          <div class="why-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 116.71-9h1.79a4.5 4.5 0 110 9z"/></svg>
+          </div>
+          <h3>Vibes-based testing hides regressions</h3>
+          <p>Eyeballing outputs after every change catches the failures you already expect and misses the ones you don't. By the time a regression is visible, it's already shipped.</p>
+        </div>
+        <div class="why-card" style="--why-accent: var(--accent-2);">
+          <div class="why-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>Manual human review doesn't scale</h3>
+          <p>A human reading every output works for a demo and breaks the moment you ship weekly. You need automated signal on every commit, with human judgment reserved for calibration — not gatekeeping.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="catalog">
+      <div class="section-head">
+        <span class="section-eyebrow">The toolkit</span>
+        <h2>Eval Pattern Catalog</h2>
+        <p>Six patterns for catching different failure modes. Pick based on what you're trying to catch, not what's trendiest.</p>
+      </div>
+      <div class="filter-bar" role="group" aria-label="Filter by difficulty" id="filter-bar">
+        <button class="filter-btn active" data-filter="all" type="button">All</button>
+        <button class="filter-btn" data-filter="Beginner" type="button">Beginner</button>
+        <button class="filter-btn" data-filter="Intermediate" type="button">Intermediate</button>
+        <button class="filter-btn" data-filter="Advanced" type="button">Advanced</button>
+      </div>
+      <div class="catalog-grid" id="catalog-grid"></div>
+    </section>
+
+    <section id="tools">
+      <div class="section-head">
+        <span class="section-eyebrow">The landscape</span>
+        <h2>Where the existing tools fit</h2>
+        <p>Honest tradeoffs, not a sales pitch. Most teams end up combining two of these rather than picking one.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="compare">
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Best for</th>
+              <th>Setup effort</th>
+              <th>CI fit</th>
+              <th>Pricing</th>
+              <th>Watch-outs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>promptfoo</td>
+              <td>Prompt/model regression testing in CI, fast local iteration</td>
+              <td>Low — YAML config, run with npx, no account needed</td>
+              <td>Strong — built for the command line from day one</td>
+              <td>Free, open source</td>
+              <td class="watchout">You own the infra for storing historical results and dashboards; less built for team collaboration on human review.</td>
+            </tr>
+            <tr>
+              <td>OpenAI Evals</td>
+              <td>Reproducible, community-shared eval templates and standard benchmark-style testing</td>
+              <td>Medium — Python, some framework conventions to learn</td>
+              <td>Good, but conventions skew toward OpenAI-model workflows</td>
+              <td>Free, open source</td>
+              <td class="watchout">Smaller momentum and community than it once had; less turnkey UI for non-engineers.</td>
+            </tr>
+            <tr>
+              <td>LangSmith</td>
+              <td>Teams already on LangChain/LangGraph who want tracing and eval in one place</td>
+              <td>Low if already using LangChain, more overhead otherwise</td>
+              <td>Good via SDK, but the value is really the hosted trace/eval UI</td>
+              <td>Free tier, paid tiers scale with usage/seats</td>
+              <td class="watchout">Strongest inside the LangChain ecosystem — some vendor lock-in and hosted-data considerations for sensitive prompts.</td>
+            </tr>
+            <tr>
+              <td>Braintrust</td>
+              <td>A polished UI for comparing experiment runs, human review workflows, and dashboards without building one</td>
+              <td>Low to medium — SDK plus a hosted account</td>
+              <td>Good via SDK/CLI</td>
+              <td>Free tier, usage-based paid tiers</td>
+              <td class="watchout">Hosted-only proprietary platform — your data leaves your infra and you're dependent on their roadmap.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="example">
+      <div class="section-head">
+        <span class="section-eyebrow">Try it</span>
+        <h2>A runnable example</h2>
+        <p>A minimal rubric-scoring harness in plain Node — zero dependencies, no framework lock-in. Fork it and swap in your own pipeline's output.</p>
+      </div>
+      <div class="code-wrap"><pre><code>// Each rubric item is a weighted, independently checkable claim about the output.
+const checkers = {
+  contains:   (output, { value }) =&gt; output.toLowerCase().includes(value.toLowerCase()),
+  not_contains: (output, { value }) =&gt; !output.toLowerCase().includes(value.toLowerCase()),
+  valid_json: (output) =&gt; { try { JSON.parse(output); return true; } catch { return false; } },
+  max_sentences: (output, { value }) =&gt; (output.match(/[.!?]+(\s|$)/g) || []).length &lt;= value,
+  // llm_judge delegates to a real model call — gated behind an API key
+  // so the harness runs with zero setup and fails loud without one.
+};
+
+function scoreCase(testCase) {
+  const results = testCase.rubric.map((item) =&gt; ({
+    ...item,
+    passed: checkers[item.type](testCase.output, item),
+  }));
+  const total  = results.reduce((sum, r) =&gt; sum + r.weight, 0);
+  const earned = results.reduce((sum, r) =&gt; sum + (r.passed ? r.weight : 0), 0);
+  return { ...testCase, results, score: earned / total };
+}
+
+// node harness.js --threshold=0.8
+// exits non-zero when the average score regresses below threshold — wire
+// that into CI to gate merges on eval score, not on someone remembering to look.</code></pre></div>
+      <div class="code-actions">
+        <a class="btn primary" href="https://github.com/clarkngo/ai-benchmarks/tree/main/examples/eval-harness" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1.16-.02-2.11-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 015.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.41-2.7 5.38-5.27 5.67.41.36.78 1.06.78 2.15 0 1.55-.01 2.8-.01 3.18 0 .3.2.66.79.55A10.52 10.52 0 0023.5 12c0-6.35-5.15-11.5-11.5-11.5z"/></svg>
+          View on GitHub
+        </a>
+        <span class="btn" style="cursor:default;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          node harness.js
+        </span>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Built by <a href="https://github.com/clarkngo" target="_blank" rel="noopener">Clark Ngo</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

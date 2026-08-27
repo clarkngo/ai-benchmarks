@@ -1,0 +1,10 @@
+{
+  "name": "eval-harness-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal rubric-based eval harness — zero dependencies, no framework lock-in.",
+  "type": "module",
+  "scripts": {
+    "test": "node harness.js"
+  }
+}

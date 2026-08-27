@@ -1,0 +1,82 @@
+{
+  "patterns": [
+    {
+      "id": "exact-match-deterministic",
+      "title": "Exact-Match & Deterministic Checks",
+      "difficulty": "Beginner",
+      "icon": "<path d=\"M22 11.08V12a10 10 0 11-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/>",
+      "tools": ["pytest / Jest", "JSON Schema (Ajv, Pydantic)", "regex assertions", "promptfoo assert"],
+      "failureMode": "Silent format drift — a prompt or model change breaks structured output (missing field, wrong enum, malformed JSON) without anyone noticing until it hits production.",
+      "tags": ["deterministic", "structured-output", "regression", "ci"],
+      "summary": "Assert exact strings, regex patterns, or schema conformance against known-good outputs. The cheapest signal you can get — if it can be checked with code, don't spend a model call checking it.",
+      "howItWorks": "Define a fixed set of inputs with known-correct outputs or output shapes. Run the pipeline, then compare programmatically: string equality, regex match, JSON Schema validation, or field-level assertions. No model call needed for scoring, so it's fast and free to run on every commit.",
+      "whenToUse": "Anything with a verifiable ground truth: structured extraction, classification into a fixed label set, function-calling arguments, code that must compile or pass tests, API responses that must match a contract.",
+      "limitation": "Says nothing about tasks with subjective or open-ended outputs like a paragraph of prose — necessary but not sufficient for most real evals."
+    },
+    {
+      "id": "llm-as-judge",
+      "title": "LLM-as-Judge Scoring",
+      "difficulty": "Intermediate",
+      "icon": "<path d=\"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>",
+      "tools": ["promptfoo", "OpenAI Evals", "Braintrust", "custom judge prompt + structured output"],
+      "failureMode": "Subjective quality regressions — tone drift, unfaithful summaries, verbose or evasive answers — that exact-match checks can't see because there's no single correct string.",
+      "tags": ["llm-judge", "quality", "automated", "scalable"],
+      "summary": "Use a second model call to score the candidate output against explicit criteria, returning a structured verdict instead of a vibe. Scales far better than human review, at the cost of judge bias you have to actively guard against.",
+      "howItWorks": "Write a judge prompt with explicit, itemized criteria — not 'is this good?'. Feed it the input, the candidate output, and optionally a reference answer. Force structured output (verdict, score, reasoning) at temperature 0. Track judge agreement with human raters on a sample to calibrate trust.",
+      "whenToUse": "Open-ended generation — summaries, chat responses, RAG answers — where you need signal on every commit but can't afford a human in the loop.",
+      "limitation": "Judges have systematic biases (favoring longer or more confident-sounding answers, sharing blind spots with same-family generator models). Validate against a human-labeled sample before trusting it as a gate."
+    },
+    {
+      "id": "rubric-human-rating",
+      "title": "Rubric-Based Human Rating",
+      "difficulty": "Intermediate",
+      "icon": "<path d=\"M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M23 21v-2a4 4 0 00-3-3.87\"/><path d=\"M16 3.13a4 4 0 010 7.75\"/>",
+      "tools": ["Label Studio", "spreadsheet + rater guidelines", "Prolific / internal raters", "Cohen's kappa for agreement"],
+      "failureMode": "Nuanced judgment errors that both deterministic checks and LLM judges miss — factual subtlety, tone appropriateness for a specific audience, calls that need domain expertise.",
+      "tags": ["human-eval", "rubric", "calibration", "ground-truth"],
+      "summary": "Have trained humans score outputs against a written rubric with concrete anchors for each level. Slower and more expensive than automated methods, but it's your ground truth — use it to calibrate everything else.",
+      "howItWorks": "Write a rubric with 3-5 score levels, each anchored with a concrete example, not just 'good/bad'. Have two or more raters independently score a sample and measure inter-rater agreement. Disagreements get discussed and the rubric gets refined — the rubric-writing process usually surfaces requirements nobody had made explicit.",
+      "whenToUse": "Building the labeled dataset you'll use to validate an LLM-as-judge, evaluating high-stakes or low-volume outputs directly, or any time automated scores and your own read of the outputs disagree.",
+      "limitation": "Doesn't scale to per-commit CI gating — budget it for periodic calibration runs and high-stakes releases, not every pull request."
+    },
+    {
+      "id": "statistical-significance",
+      "title": "Statistical Significance & Sample Size",
+      "difficulty": "Advanced",
+      "icon": "<line x1=\"18\" y1=\"20\" x2=\"18\" y2=\"10\"/><line x1=\"12\" y1=\"20\" x2=\"12\" y2=\"4\"/><line x1=\"6\" y1=\"20\" x2=\"6\" y2=\"14\"/>",
+      "tools": ["scipy.stats", "statsmodels power analysis", "bootstrap resampling", "sequential testing (mSPRT)"],
+      "failureMode": "False confidence — shipping or blocking a change based on a 3-point score bump over 20 test cases that's actually just noise.",
+      "tags": ["statistics", "sample-size", "significance", "experiment-design"],
+      "summary": "Before trusting a score delta between two prompt or model versions, ask whether your sample size could actually detect an effect that small, and whether the 'improvement' survives a significance test.",
+      "howItWorks": "Run a power analysis before collecting data: given your metric's variance and the effect size you care about, compute the minimum sample size for adequate power. After running the eval, use a paired test — paired t-test, bootstrap CI on the difference, or McNemar's for pass/fail — rather than comparing raw averages.",
+      "whenToUse": "Any time you're comparing two versions — model, prompt, pipeline — and about to make a ship/no-ship call based on the eval score difference, which is most of the time evals actually matter.",
+      "limitation": "Requires discipline most teams skip under deadline pressure. The payoff is not shipping regressions that a bigger, noisier eval set would have written off as noise."
+    },
+    {
+      "id": "latency-cost-benchmarking",
+      "title": "Latency & Cost Benchmarking",
+      "difficulty": "Beginner",
+      "icon": "<polyline points=\"22 12 18 12 15 21 9 3 6 12 2 12\"/>",
+      "tools": ["OpenTelemetry", "LangSmith traces", "custom token-counting wrapper", "p50/p95/p99 dashboards"],
+      "failureMode": "Silent latency or cost regressions — a prompt rewrite, added retrieval step, or model swap that quietly triples token spend or tail latency while quality metrics look fine.",
+      "tags": ["performance", "cost", "latency", "observability"],
+      "summary": "Track tokens, dollars, and wall-clock time alongside quality metrics on every eval run. A quality win that doubles cost or blows your latency budget usually isn't a win.",
+      "howItWorks": "Wrap every model call with timing and token-usage capture. Record p50/p95/p99 latency and total and per-request cost per eval run, not just averages — tail latency is what users feel, and averages hide it. Diff these against the previous run alongside the quality score.",
+      "whenToUse": "Every eval run, as a first-class metric next to quality — not an afterthought you check only when someone complains about the bill.",
+      "limitation": "Doesn't tell you why a regression happened — pair it with tracing to attribute cost or latency changes to a specific step in the pipeline."
+    },
+    {
+      "id": "safety-refusal-testing",
+      "title": "Safety & Refusal-Rate Testing",
+      "difficulty": "Advanced",
+      "icon": "<path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/>",
+      "tools": ["promptfoo redteam plugin", "moderation endpoints", "curated jailbreak/red-team prompt sets", "adversarial LLM-as-judge"],
+      "failureMode": "Jailbreaks that slip through after a model or system-prompt update, or the opposite failure — over-refusal on legitimate requests that quietly tanks usability.",
+      "tags": ["safety", "red-team", "refusal-rate", "robustness"],
+      "summary": "Run a fixed set of adversarial and boundary-case prompts on every meaningful change, and track both the unsafe-completion rate and the over-refusal rate — they trade off against each other.",
+      "howItWorks": "Maintain a versioned set of red-team prompts (known jailbreak patterns, boundary requests) plus a set of legitimate-but-sensitive requests that should NOT be refused. Score completions with a safety classifier or judge model on both dimensions. Track both rates over time — optimizing only for a lower unsafe-completion rate silently pushes over-refusal up.",
+      "whenToUse": "Any system-prompt, guardrail, or base-model change — safety regressions are exactly the kind of thing that doesn't show up in a normal quality eval.",
+      "limitation": "A static red-team set goes stale as jailbreak techniques evolve. Budget time to refresh it, and treat a clean run as 'no known issues,' not 'safe.'"
+    }
+  ]
+}
